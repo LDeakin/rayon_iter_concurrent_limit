@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+ - Swapped the argument order of `iterator` and `concurrent_limit` in `chunks_concurrent_limit`
+
 ## [0.1.0-alpha] - 2024-02-04
 
 ### Added

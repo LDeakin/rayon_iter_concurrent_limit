@@ -68,8 +68,8 @@ use rayon::iter::{Chunks, IndexedParallelIterator};
 ///
 /// This method is used internally by the [`iter_concurrent_limit`] macro.
 pub fn chunks_concurrent_limit<I: IndexedParallelIterator>(
-    iterator: I,
     concurrent_limit: usize,
+    iterator: I,
 ) -> Chunks<I> {
     let chunk_size = (iterator.len() + concurrent_limit - 1) / concurrent_limit;
     iterator.chunks(chunk_size)
@@ -181,26 +181,26 @@ pub fn chunks_concurrent_limit<I: IndexedParallelIterator>(
 #[macro_export]
 macro_rules! iter_concurrent_limit {
     ( $concurrent_limit:expr, $iterator:expr, for_each, $op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
         chunks.for_each(|chunk| chunk.into_iter().for_each($op))
     }};
     // TODO: for_each_with?
     // TODO: for_each_init?
     ( $concurrent_limit:expr, $iterator:expr, try_for_each, $op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
         chunks.try_for_each(|chunk| chunk.into_iter().try_for_each($op))
     }};
     // TODO: try_for_each_with?
     // TODO: try_for_each_init?
     ( $concurrent_limit:expr, $iterator:expr, map, $map_op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
         chunks.flat_map_iter(|chunk| chunk.into_iter().map($map_op))
     }};
     // TODO: map_with?
     // TODO: map_init?
     // IGNORE: inspect
     ( $concurrent_limit:expr, $iterator:expr, update, $update_op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
         chunks.flat_map_iter(|chunk| {
             chunk.into_iter().map(|mut item| {
                 $update_op(&mut item);
@@ -209,16 +209,16 @@ macro_rules! iter_concurrent_limit {
         })
     }};
     ( $concurrent_limit:expr, $iterator:expr, filter, $filter_op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
         chunks.flat_map_iter(|chunk| chunk.into_iter().filter($filter_op))
     }};
     ( $concurrent_limit:expr, $iterator:expr, filter_map, $filter_op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
         chunks.flat_map_iter(|chunk| chunk.into_iter().filter_map($filter_op))
     }};
     // TODO: flat_map?
     // ( $concurrent_limit:expr, $iterator:expr, flat_map, $map_op:expr ) => {{
-    //     let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+    //     let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
     //     chunks.flat_map_iter(|chunk| chunk.into_iter().map($map_op))
     // }};
     // TODO: flat_map_iter?
@@ -231,13 +231,13 @@ macro_rules! iter_concurrent_limit {
     // TODO: try_fold?
     // TODO: try_fold_with?
     // ( $concurrent_limit:expr, $iterator:expr, max_by_key, $f:expr ) => {{
-    //     let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+    //     let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
     //     chunks
     //         .flat_map(|chunk| chunk.into_iter().max_by_key($f))
     //         .max_by_key($f)
     // }};
     // ( $concurrent_limit:expr, $iterator:expr, min_by_key, $f:expr ) => {{
-    //     let chunks = chunks_concurrent_limit($iterator, $concurrent_limit);
+    //     let chunks = chunks_concurrent_limit($concurrent_limit, $iterator);
     //     chunks
     //         .flat_map(|chunk| chunk.into_iter().min_by_key($f))
     //         .min_by_key($f)
@@ -249,11 +249,11 @@ macro_rules! iter_concurrent_limit {
     // TODO: find_map_first?
     // TODO: find_map_last?
     ( $concurrent_limit:expr, $iterator:expr, any, $predicate:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
         chunks.any(|chunk| chunk.into_iter().any($predicate))
     }};
     ( $concurrent_limit:expr, $iterator:expr, all, $predicate:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($iterator, $concurrent_limit);
+        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
         chunks.all(|chunk| chunk.into_iter().all($predicate))
     }};
     // TODO: partition?
