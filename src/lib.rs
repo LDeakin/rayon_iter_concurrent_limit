@@ -4,11 +4,11 @@
 //! This example demonstrates applying a concurrency-limited `map` to an iterator with the [`iter_concurrent_limit`] macro.
 //! `map` is one of many supported methods of the macro.
 //! ```rust
-//! # use rayon::iter::{IntoParallelIterator, ParallelIterator};
-//! # use rayon_iter_concurrent_limit::iter_concurrent_limit;
+//! use rayon::iter::{IntoParallelIterator, ParallelIterator};
+//! use rayon_iter_concurrent_limit::iter_concurrent_limit;
 //! const N: usize = 1000;
 //! let op = |i: usize| -> usize {
-//!     let alloc = vec![i; N]; // max of 2 concurrent allocations
+//!     let alloc = vec![i; N]; // max 2 concurrent allocations in this example
 //!     alloc.into_par_iter().sum::<usize>() // runs on all threads
 //! };
 //! let sum_iter = iter_concurrent_limit!(2, (0..100).into_par_iter(), map, op);
@@ -19,13 +19,30 @@
 //!     .collect::<Vec<usize>>();
 //! assert_eq!(output, (0..100).into_iter().collect::<Vec<usize>>());
 //! ```
-//! The equivalent `sum_iter` expression without this crate is
+//! The equivalent `sum_iter` expression using [`iter_subdivide`] is:
 //! ```rust
 //! # use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-//! # use rayon_iter_concurrent_limit::chunks_concurrent_limit;
+//! # use rayon_iter_concurrent_limit::iter_subdivide;
 //! # const N: usize = 1000;
 //! # let op = |i: usize| -> usize {
-//! #     let alloc = vec![i; N]; // max of 2 concurrent allocations
+//! #     let alloc = vec![i; N]; // max 2 concurrent allocations in this example
+//! #     alloc.into_par_iter().sum::<usize>() // runs on all threads
+//! # };
+//! let sum_iter = iter_subdivide(2, (0..100).into_par_iter())
+//!     .flat_map_iter(|chunk| chunk.into_iter().map(op));
+//! # let output = sum_iter
+//! #     .map(|alloc_sum| -> usize {
+//! #         alloc_sum / N // runs on all threads
+//! #     })
+//! #     .collect::<Vec<usize>>();
+//! # assert_eq!(output, (0..100).into_iter().collect::<Vec<usize>>());
+//! ```
+//! The equivalent expression without using functionality in this crate is:
+//! ```rust
+//! # use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+//! # const N: usize = 1000;
+//! # let op = |i: usize| -> usize {
+//! #     let alloc = vec![i; N]; // max 2 concurrent allocations in this example
 //! #     alloc.into_par_iter().sum::<usize>() // runs on all threads
 //! # };
 //! let sum_iter = (0..100)
@@ -71,17 +88,17 @@
 //! # Solution
 //! This crate provides [`iter_concurrent_limit`], a macro that enables many [`rayon::iter::ParallelIterator`] methods to execute their operands with limited concurrency.
 //!
-//! The [Examples](crate::iter_concurrent_limit#examples) section of [`iter_concurrent_limit`] has various usage examples.
+//! The [Examples](crate::iter_concurrent_limit#examples) section of [`iter_concurrent_limit`] has usage examples for each method supported by the macro.
 //!
 //! ### Implementation
-//! The macro limits concurrency by calling [`IndexedParallelIterator::chunks`] on the parallel iterator (using the [`chunks_concurrent_limit`] method) to reduce the number of work items for [`rayon`].
-//! Internally, the [`chunks_concurrent_limit`] method calculates the chunk size as `iterator.len().ceiling_div(concurrent_limit)`.
+//! The macro limits concurrency by calling [`IndexedParallelIterator::chunks`] on the parallel iterator (using the [`iter_subdivide`] method) to reduce the number of work items for [`rayon`].
+//! Internally, the [`iter_subdivide`] method calculates the chunk size as `iterator.len().ceiling_div(concurrent_limit)`.
 //! The function passed to the macro is called sequentially on the items in each chunk, but in parallel over the chunks.
 //! The output of the function is flattened for methods with an iterator output, like `map` and `filter`.
 //!
 //! ### Limitations
-//! - Iterators passed to [`iter_concurrent_limit`] must implement [`IndexedParallelIterator`].
-//! - Not all relevant [`ParallelIterator`](rayon::iter::ParallelIterator) methods are currently supported.
+//! - Iterators passed to [`iter_concurrent_limit`] or [`iter_subdivide`] must implement the [`IndexedParallelIterator`] trait.
+//! - Only a subset of relevant [`ParallelIterator`](rayon::iter::ParallelIterator)/[`IndexedParallelIterator`] methods are currently supported by the [`iter_concurrent_limit`] macro.
 // TODO: - Methods which rely on thread-local initialisation (e.g. [`rayon::iter::ParallelIterator::map_init`]) will not function identically when run though [`iter_concurrent_limit`].
 
 #![warn(unused_variables)]
@@ -90,14 +107,22 @@
 
 use rayon::iter::{Chunks, IndexedParallelIterator};
 
-/// Split a [`rayon::iter::IndexedParallelIterator`] into `concurrent_limit` chunks.
+/// Subdivide a [`rayon::iter::IndexedParallelIterator`] into `num_chunks` chunks.
+///
+/// Internally this returns the output of the [`IndexedParallelIterator::chunks`] function with a chunk size calculated according to:
+/// ```rust
+/// # use rayon::iter::IntoParallelIterator;
+/// # use rayon::iter::IndexedParallelIterator;
+/// # let num_chunks: usize = 1;
+/// # let iterator = (0..1).into_par_iter();
+/// (iterator.len() + num_chunks - 1) / num_chunks
+/// # ;
+/// ```
+/// If `num_chunks` does not evenly divide the iterator length, the last chunk will be smaller than the rest.
 ///
 /// This method is used internally by the [`iter_concurrent_limit`] macro.
-pub fn chunks_concurrent_limit<I: IndexedParallelIterator>(
-    concurrent_limit: usize,
-    iterator: I,
-) -> Chunks<I> {
-    let chunk_size = (iterator.len() + concurrent_limit - 1) / concurrent_limit;
+pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I) -> Chunks<I> {
+    let chunk_size = (iterator.len() + num_chunks - 1) / num_chunks;
     iterator.chunks(chunk_size)
 }
 
@@ -114,9 +139,9 @@ pub fn chunks_concurrent_limit<I: IndexedParallelIterator>(
 /// - `method` is the name of a supported [`ParallelIterator`](rayon::iter::ParallelIterator)/[`IndexedParallelIterator`] method:
 ///   - Only methods which call a supplied function are supported.
 ///   - Operations without a function (e.g. min, max) will not allocate and there is little benefit in setting a concurrent limit for such methods.
-///   - Not every [`ParallelIterator`](rayon::iter::ParallelIterator)/[`IndexedParallelIterator`] method matching this criteria is currently supported.
+///   - Not every iterator method matching this criteria is currently supported.
 /// - `function` is a function compatible with `method`, such as an operation, predicate, etc.
-///   - The function is called *sequentially* on the items in each chunk, but in *parallel* over the chunks, with the number of concurrent executions constrained by the `concurrent_limit`.
+///   - The function is called *sequentially* on the items in each chunk, but in *parallel* over the chunks, with the number of concurrent executions upper bounded by the `concurrent_limit`.
 ///   - Parallel rayon methods executed in the function will implicitly utilise the global thread pool unless an alternative thread pool has been installed (see [`rayon::ThreadPool`]).
 ///
 /// # Examples
@@ -124,10 +149,11 @@ pub fn chunks_concurrent_limit<I: IndexedParallelIterator>(
 /// ```rust
 /// # use rayon::iter::{IntoParallelIterator, ParallelIterator};
 /// # use rayon_iter_concurrent_limit::iter_concurrent_limit;
-/// iter_concurrent_limit!(2, (0..10).into_par_iter(), for_each, |i: usize| {
-///     let alloc = vec![i; 1000]; // max of 2 concurrent allocations
+/// let op = |i: usize| {
+///     let alloc = vec![i; 1000]; // limited concurrency
 ///     alloc.into_par_iter().for_each(|_j| {}); // runs on all threads
-/// });
+/// };
+/// iter_concurrent_limit!(2, (0..10).into_par_iter(), for_each, op);
 /// ```
 ///
 /// ### try_for_each
@@ -135,11 +161,12 @@ pub fn chunks_concurrent_limit<I: IndexedParallelIterator>(
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// # use rayon::iter::{IntoParallelIterator, ParallelIterator};
 /// # use rayon_iter_concurrent_limit::iter_concurrent_limit;
-/// iter_concurrent_limit!(2, (0..10).into_par_iter(), try_for_each, |i: usize| {
-///     let alloc = vec![i; 1000]; // max of 2 concurrent allocations
+/// let op = |i: usize| {
+///     let alloc = vec![i; 1000]; // limited concurrency
 ///     alloc.into_par_iter().for_each(|_j| {}); // runs on all threads
 ///     Ok::<(), std::io::Error>(())
-/// })?;
+/// };
+/// iter_concurrent_limit!(2, (0..10).into_par_iter(), try_for_each, op)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -148,85 +175,91 @@ pub fn chunks_concurrent_limit<I: IndexedParallelIterator>(
 /// ```rust
 /// # use rayon::iter::{IntoParallelIterator, ParallelIterator};
 /// # use rayon_iter_concurrent_limit::iter_concurrent_limit;
-/// const N: usize = 1000;
-/// let sum = iter_concurrent_limit!(2, (0..100).into_par_iter(), map, |i: usize| {
-///     let alloc = vec![i; 1000]; // max of 2 concurrent allocations
+/// let op = |i: usize| {
+///     let alloc = vec![i; 1000]; // limited concurrency
 ///     alloc.into_par_iter().sum::<usize>() // runs on all threads
-/// }).sum::<usize>();
-/// assert_eq!(sum, (0..100).into_iter().map(|i| i * 1000).sum::<usize>());
+/// };
+/// let sum =
+///     iter_concurrent_limit!(2, (0..100).into_par_iter(), map, op)
+///     .sum::<usize>();
+/// assert_eq!(sum, (0..100).into_iter().map(op).sum::<usize>());
 /// ```
 ///
 /// ### filter
 /// ```rust
 /// # use rayon::iter::{IntoParallelIterator, ParallelIterator};
 /// # use rayon_iter_concurrent_limit::iter_concurrent_limit;
-/// const N: usize = 1000;
-/// let even = iter_concurrent_limit!(2, (0..100).into_par_iter(), filter, |i: &usize| -> bool {
-///     // .. do work with limited concurrency
+/// let op = |i: &usize| -> bool {
+///     // ... do work with limited concurrency
 ///     i % 2 == 0
-/// }).collect::<Vec<usize>>();
-/// assert_eq!(even, (0..100).into_iter().filter(|i| i % 2 == 0).collect::<Vec<usize>>());
+/// };
+/// let even =
+///     iter_concurrent_limit!(2, (0..100).into_par_iter(), filter, op)
+///     .collect::<Vec<usize>>();
+/// assert_eq!(even, (0..100).into_iter().filter(op).collect::<Vec<usize>>());
 /// ```
 ///
 /// ### filter_map
 /// ```rust
 /// # use rayon::iter::{IntoParallelIterator, ParallelIterator};
 /// # use rayon_iter_concurrent_limit::iter_concurrent_limit;
-/// const N: usize = 1000;
-/// let even = iter_concurrent_limit!(2, (0..100).into_par_iter(), filter_map, |i: usize| -> Option<usize> {
-///     // .. do work with limited concurrency
+/// let op = |i: usize| -> Option<usize> {
+///     // ... do work with limited concurrency
 ///     if i % 2 == 0 { Some(i * 2) } else { None }
-/// }).collect::<Vec<usize>>();
-/// assert_eq!(even, (0..100).into_iter().filter_map(|i| if i % 2 == 0 { Some(i * 2) } else { None }).collect::<Vec<usize>>());
+/// };
+/// let even_doubled =
+///     iter_concurrent_limit!(2, (0..100).into_par_iter(), filter_map, op)
+///     .collect::<Vec<usize>>();
+/// assert_eq!(even_doubled, (0..100).into_iter().filter_map(op).collect::<Vec<usize>>());
 /// ```
 ///
 /// ### any
 /// ```rust
 /// # use rayon::iter::{IntoParallelIterator, ParallelIterator};
 /// # use rayon_iter_concurrent_limit::iter_concurrent_limit;
-/// const N: usize = 1000;
-/// let any_eq_50 = iter_concurrent_limit!(2, (0..100).into_par_iter(), any, |i: usize| -> bool {
-///     // .. do work with limited concurrency
+/// let op = |i: usize| -> bool {
+///     // ... do work with limited concurrency
 ///     i == 50
-/// });
-/// assert_eq!(any_eq_50, (0..100).into_iter().any(|i| i == 50));
+/// };
+/// let any_eq_50 = iter_concurrent_limit!(2, (0..100).into_par_iter(), any, op);
+/// assert_eq!(any_eq_50, (0..100).into_iter().any(op));
 /// ```
 ///
 /// ### all
 /// ```rust
 /// # use rayon::iter::{IntoParallelIterator, ParallelIterator};
 /// # use rayon_iter_concurrent_limit::iter_concurrent_limit;
-/// const N: usize = 1000;
-/// let all_lt_100 = iter_concurrent_limit!(2, (0..100).into_par_iter(), all, |i: usize| -> bool {
-///     // .. do work with limited concurrency
-///     i < 100
-/// });
-/// assert_eq!(all_lt_100, (0..100).into_iter().any(|i| i < 100));
+/// let op = |i: usize| -> bool {
+///     // ... do work with limited concurrency
+///     i == 50
+/// };
+/// let all_eq_50 = iter_concurrent_limit!(2, (0..100).into_par_iter(), all, op);
+/// assert_eq!(all_eq_50, (0..100).into_iter().all(op));
 /// ```
 ///
 #[macro_export]
 macro_rules! iter_concurrent_limit {
     ( $concurrent_limit:expr, $iterator:expr, for_each, $op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+        let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
         chunks.for_each(|chunk| chunk.into_iter().for_each($op))
     }};
     // TODO: for_each_with?
     // TODO: for_each_init?
     ( $concurrent_limit:expr, $iterator:expr, try_for_each, $op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+        let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
         chunks.try_for_each(|chunk| chunk.into_iter().try_for_each($op))
     }};
     // TODO: try_for_each_with?
     // TODO: try_for_each_init?
     ( $concurrent_limit:expr, $iterator:expr, map, $map_op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+        let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
         chunks.flat_map_iter(|chunk| chunk.into_iter().map($map_op))
     }};
     // TODO: map_with?
     // TODO: map_init?
     // IGNORE: inspect
     ( $concurrent_limit:expr, $iterator:expr, update, $update_op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+        let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
         chunks.flat_map_iter(|chunk| {
             chunk.into_iter().map(|mut item| {
                 $update_op(&mut item);
@@ -235,16 +268,16 @@ macro_rules! iter_concurrent_limit {
         })
     }};
     ( $concurrent_limit:expr, $iterator:expr, filter, $filter_op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+        let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
         chunks.flat_map_iter(|chunk| chunk.into_iter().filter($filter_op))
     }};
     ( $concurrent_limit:expr, $iterator:expr, filter_map, $filter_op:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+        let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
         chunks.flat_map_iter(|chunk| chunk.into_iter().filter_map($filter_op))
     }};
     // TODO: flat_map?
     // ( $concurrent_limit:expr, $iterator:expr, flat_map, $map_op:expr ) => {{
-    //     let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+    //     let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
     //     chunks.flat_map_iter(|chunk| chunk.into_iter().map($map_op))
     // }};
     // TODO: flat_map_iter?
@@ -257,13 +290,13 @@ macro_rules! iter_concurrent_limit {
     // TODO: try_fold?
     // TODO: try_fold_with?
     // ( $concurrent_limit:expr, $iterator:expr, max_by_key, $f:expr ) => {{
-    //     let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+    //     let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
     //     chunks
     //         .flat_map(|chunk| chunk.into_iter().max_by_key($f))
     //         .max_by_key($f)
     // }};
     // ( $concurrent_limit:expr, $iterator:expr, min_by_key, $f:expr ) => {{
-    //     let chunks = chunks_concurrent_limit($concurrent_limit, $iterator);
+    //     let chunks = iter_subdivide($concurrent_limit, $iterator);
     //     chunks
     //         .flat_map(|chunk| chunk.into_iter().min_by_key($f))
     //         .min_by_key($f)
@@ -275,11 +308,11 @@ macro_rules! iter_concurrent_limit {
     // TODO: find_map_first?
     // TODO: find_map_last?
     ( $concurrent_limit:expr, $iterator:expr, any, $predicate:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+        let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
         chunks.any(|chunk| chunk.into_iter().any($predicate))
     }};
     ( $concurrent_limit:expr, $iterator:expr, all, $predicate:expr ) => {{
-        let chunks = $crate::chunks_concurrent_limit($concurrent_limit, $iterator);
+        let chunks = $crate::iter_subdivide($concurrent_limit, $iterator);
         chunks.all(|chunk| chunk.into_iter().all($predicate))
     }};
     // TODO: partition?

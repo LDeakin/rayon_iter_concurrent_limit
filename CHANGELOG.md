@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+ - Rename `chunks_concurrent_limit` to `iter_subdivide`
+ - Various documentation improvements
+
 ## [0.1.0-alpha2] - 2024-02-04
 
 ### Added
