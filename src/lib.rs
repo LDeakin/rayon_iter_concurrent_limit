@@ -1,41 +1,43 @@
 //! Limit the concurrency of an individual rayon parallel iterator method with a convenient macro.
 //!
 //! # Example
-//! ### Map with `iter_concurrent_limit` macro
+//! This example demonstrates applying a concurrency-limited `map` to an iterator with the [`iter_concurrent_limit`] macro.
+//! `map` is one of many supported methods of the macro.
 //! ```rust
 //! # use rayon::iter::{IntoParallelIterator, ParallelIterator};
 //! # use rayon_iter_concurrent_limit::iter_concurrent_limit;
 //! const N: usize = 1000;
-//! let output = iter_concurrent_limit!(2, (0..100).into_par_iter(), map, |i: usize| -> usize {
+//! let op = |i: usize| -> usize {
 //!     let alloc = vec![i; N]; // max of 2 concurrent allocations
 //!     alloc.into_par_iter().sum::<usize>() // runs on all threads
-//! })
-//! .map(|alloc_sum| -> usize {
-//!     alloc_sum / N // runs on all threads
-//! })
-//! .collect::<Vec<usize>>();
-//! assert_eq!(output, (0..100).into_iter().collect::<Vec<usize>>());
-//! ```
-//!
-//! ### Equivalent code (without this crate)
-//! ```rust
-//! # use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-//! # use rayon_iter_concurrent_limit::chunks_concurrent_limit;
-//! const N: usize = 1000;
-//! let output = (0..100)
-//!     .into_par_iter()
-//!     .chunks((100 + 2 - 1) / 2)
-//!     .flat_map_iter(|chunk| {
-//!         chunk.into_iter().map(|i| -> usize {
-//!             let alloc = vec![i; N]; // max of 2 concurrent allocations
-//!             alloc.into_par_iter().sum::<usize>() // runs on all threads
-//!         })
-//!     })
+//! };
+//! let sum_iter = iter_concurrent_limit!(2, (0..100).into_par_iter(), map, op);
+//! let output = sum_iter
 //!     .map(|alloc_sum| -> usize {
 //!         alloc_sum / N // runs on all threads
 //!     })
 //!     .collect::<Vec<usize>>();
 //! assert_eq!(output, (0..100).into_iter().collect::<Vec<usize>>());
+//! ```
+//! The equivalent `sum_iter` expression without this crate is
+//! ```rust
+//! # use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+//! # use rayon_iter_concurrent_limit::chunks_concurrent_limit;
+//! # const N: usize = 1000;
+//! # let op = |i: usize| -> usize {
+//! #     let alloc = vec![i; N]; // max of 2 concurrent allocations
+//! #     alloc.into_par_iter().sum::<usize>() // runs on all threads
+//! # };
+//! let sum_iter = (0..100)
+//!     .into_par_iter()
+//!     .chunks((100 + 2 - 1) / 2)
+//!     .flat_map_iter(|chunk| chunk.into_iter().map(op));
+//! # let output = sum_iter
+//! #     .map(|alloc_sum| -> usize {
+//! #         alloc_sum / N // runs on all threads
+//! #     })
+//! #     .collect::<Vec<usize>>();
+//! # assert_eq!(output, (0..100).into_iter().collect::<Vec<usize>>());
 //! ```
 //!
 //! # Motivation
@@ -48,7 +50,7 @@
 //! (0..100).into_par_iter().for_each(op);
 //! ```
 //! In this case, it may be necessary to limit the number of concurrent executions of `op` due to memory constraints.
-//! The number of threads could be limited with [`rayon::ThreadPool::install`] like so:
+//! The number of threads could be limited with [`rayon::ThreadPool::install`](rayon::ThreadPool::install) like so:
 //! ```rust
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! # use rayon::iter::{IntoParallelIterator, ParallelIterator};
