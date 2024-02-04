@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
  - Add `chunks_concurrent_limit_map` tests
+ - Add doc example with equivalent code to macro
 
 ### Changed
  - Swapped the argument order of `iterator` and `concurrent_limit` in `chunks_concurrent_limit`
