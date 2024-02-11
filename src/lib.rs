@@ -82,7 +82,7 @@
 //!
 //! However, this has some limitations and footguns:
 //! - Any parallel operations within `op` will use the same thread-limited thread pool, unless [`install`](rayon::ThreadPool::install) is called internally with a different thread pool.
-//! - If [`install`](rayon::ThreadPool::install) is called internally, `op` can yield and multiple instances of `op` may run concurrently on each thread. This is detailed [here](https://docs.rs/rayon/1.8.1/rayon/struct.ThreadPool.html#warning-execution-order) in the [`install`](rayon::ThreadPool::install) documentation.
+//! - If [`install`](rayon::ThreadPool::install) is called internally, `op` can yield and multiple instances of `op` may run concurrently on a thread. This is detailed [here](https://docs.rs/rayon/1.8.1/rayon/struct.ThreadPool.html#warning-execution-order) in the [`install`](rayon::ThreadPool::install) documentation.
 //! - An iterator must be consumed in the [`install`](rayon::ThreadPool::install) scope of a [`ThreadPool`](rayon::ThreadPool), otherwise it will not use that thread pool.
 //!
 //! # Solution
@@ -109,7 +109,7 @@ use rayon::iter::{Chunks, IndexedParallelIterator};
 
 /// Subdivide a [`rayon::iter::IndexedParallelIterator`] into `num_chunks` chunks.
 ///
-/// Internally this returns the output of the [`IndexedParallelIterator::chunks`] function with a chunk size calculated according to:
+/// This returns the output of the [`IndexedParallelIterator::chunks`] function with a chunk size calculated according to:
 /// ```rust
 /// # use rayon::iter::IntoParallelIterator;
 /// # use rayon::iter::IndexedParallelIterator;
@@ -121,6 +121,9 @@ use rayon::iter::{Chunks, IndexedParallelIterator};
 /// If `num_chunks` does not evenly divide the iterator length, the last chunk will be smaller than the rest.
 ///
 /// This method is used internally by the [`iter_concurrent_limit`] macro.
+///
+/// # Panics
+/// Panics if `num_chunks` is zero.
 pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I) -> Chunks<I> {
     let chunk_size = (iterator.len() + num_chunks - 1) / num_chunks;
     iterator.chunks(chunk_size)

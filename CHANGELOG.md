@@ -7,10 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## Changed
+ - Minor documentation improvements
+
 ## [0.1.0-alpha3] - 2024-02-05
 
 ### Changed
- - Rename `chunks_concurrent_limit` to `iter_subdivide`
+ - **Breaking**: rename `chunks_concurrent_limit` to `iter_subdivide`
  - Various documentation improvements
 
 ## [0.1.0-alpha2] - 2024-02-04
@@ -20,7 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Add doc example with equivalent code to macro
 
 ### Changed
- - Swapped the argument order of `iterator` and `concurrent_limit` in `chunks_concurrent_limit`
+ - **Breaking**: Swapped the argument order of `iterator` and `concurrent_limit` in `chunks_concurrent_limit`
 
 ## [0.1.0-alpha] - 2024-02-04
 
