@@ -10,6 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## Changed
  - Minor documentation improvements
 
+## Fixed
+ - Fixed `iter_subdivide` if supplied with an empty iterator
+
 ## [0.1.0-alpha3] - 2024-02-05
 
 ### Changed

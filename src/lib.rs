@@ -125,7 +125,7 @@ use rayon::iter::{Chunks, IndexedParallelIterator};
 /// # Panics
 /// Panics if `num_chunks` is zero.
 pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I) -> Chunks<I> {
-    let chunk_size = (iterator.len() + num_chunks - 1) / num_chunks;
+    let chunk_size = std::cmp::max((iterator.len() + num_chunks - 1) / num_chunks, 1);
     iterator.chunks(chunk_size)
 }
 
