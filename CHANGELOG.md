@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Changed
  - Minor documentation improvements
+ - Add fast paths avoiding chunking for various methods in `iter_concurrent_limit` if `concurrent_limit` is zero
 
 ## Fixed
  - Fixed `iter_subdivide` if supplied with an empty iterator
