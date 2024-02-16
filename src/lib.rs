@@ -118,6 +118,8 @@ use rayon::iter::{Chunks, IndexedParallelIterator};
 /// (iterator.len() + num_chunks - 1) / num_chunks
 /// # ;
 /// ```
+/// If `num_chunks` is zero, then there will be one chunk per iterator item.
+///
 /// If `num_chunks` does not evenly divide the iterator length, the last chunk will be smaller than the rest.
 ///
 /// This method is used internally by the [`iter_concurrent_limit`] macro.
@@ -125,8 +127,12 @@ use rayon::iter::{Chunks, IndexedParallelIterator};
 /// # Panics
 /// Panics if `num_chunks` is zero.
 pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I) -> Chunks<I> {
-    let chunk_size = std::cmp::max((iterator.len() + num_chunks - 1) / num_chunks, 1);
-    iterator.chunks(chunk_size)
+    if num_chunks == 0 {
+        iterator.chunks(1)
+    } else {
+        let chunk_size = std::cmp::max((iterator.len() + num_chunks - 1) / num_chunks, 1);
+        iterator.chunks(chunk_size)
+    }
 }
 
 // TODO: Support more methods

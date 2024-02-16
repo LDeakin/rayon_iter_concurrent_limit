@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Fixed
  - Fixed `iter_subdivide` if supplied with an empty iterator
+ - Handle `num_chunks` of zero in `iter_subdivide`
 
 ## [0.1.0-alpha3] - 2024-02-05
 
