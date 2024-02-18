@@ -123,9 +123,6 @@ use rayon::iter::{Chunks, IndexedParallelIterator};
 /// If `num_chunks` does not evenly divide the iterator length, the last chunk will be smaller than the rest.
 ///
 /// This method is used internally by the [`iter_concurrent_limit`] macro.
-///
-/// # Panics
-/// Panics if `num_chunks` is zero.
 pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I) -> Chunks<I> {
     if num_chunks == 0 {
         iterator.chunks(1)
