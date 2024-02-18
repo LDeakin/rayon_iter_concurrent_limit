@@ -35,7 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
  - Initial alpha release for review
 
-[unreleased]: https://github.com/LDeakin/rayon_iter_concurrent_limit/compare/v0.1.0-alpha3...HEAD
+[unreleased]: https://github.com/LDeakin/rayon_iter_concurrent_limit/compare/v0.1.0-alpha4...HEAD
+[0.1.0-alpha4]: https://github.com/LDeakin/rayon_iter_concurrent_limit/releases/tag/v0.1.0-alpha4
 [0.1.0-alpha3]: https://github.com/LDeakin/rayon_iter_concurrent_limit/releases/tag/v0.1.0-alpha3
 [0.1.0-alpha2]: https://github.com/LDeakin/rayon_iter_concurrent_limit/releases/tag/v0.1.0-alpha2
 [0.1.0-alpha]: https://github.com/LDeakin/rayon_iter_concurrent_limit/releases/tag/v0.1.0-alpha
