@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2024-02-19
+
 ## Fixed
  - Remove incorrect panics docs for `iter_subdivide`
 
@@ -40,7 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
  - Initial alpha release for review
 
-[unreleased]: https://github.com/LDeakin/rayon_iter_concurrent_limit/compare/v0.1.0-alpha4...HEAD
+[unreleased]: https://github.com/LDeakin/rayon_iter_concurrent_limit/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/LDeakin/rayon_iter_concurrent_limit/releases/tag/v0.1.0
 [0.1.0-alpha4]: https://github.com/LDeakin/rayon_iter_concurrent_limit/releases/tag/v0.1.0-alpha4
 [0.1.0-alpha3]: https://github.com/LDeakin/rayon_iter_concurrent_limit/releases/tag/v0.1.0-alpha3
 [0.1.0-alpha2]: https://github.com/LDeakin/rayon_iter_concurrent_limit/releases/tag/v0.1.0-alpha2
