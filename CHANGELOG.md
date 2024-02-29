@@ -7,18 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+ - **Breaking**: The iterator argument in the `iter_concurrent_limit!` macro now expects an expression implementing `rayon::iter::IntoParallelIterator`
+   - Example: use `iter_concurrent_limit!(n, (0..100), method, op)` instead of `iter_concurrent_limit!(n, (0..100).into_par_iter(), method, op)`
+   - The `into_par_iter()` iterator must implement `rayon::iter::IndexedParallelIterator`
+   - Some iterator methods require the iterator argument to also implement `std::iter::IntoIterator` for fast paths
+ - Add fast paths in `iter_concurrent_limit!` if `concurrent_limit` is 1 for methods: `for_each`, `try_for_each`, `any`, `all`
+   - These paths do not start additional `rayon` work items
+
 ## [0.1.0] - 2024-02-19
 
-## Fixed
+### Fixed
  - Remove incorrect panics docs for `iter_subdivide`
 
 ## [0.1.0-alpha4] - 2024-02-18
 
-## Changed
+### Changed
  - Minor documentation improvements
  - Add fast paths avoiding chunking for various methods in `iter_concurrent_limit` if `concurrent_limit` is zero
 
-## Fixed
+### Fixed
  - Fixed `iter_subdivide` if supplied with an empty iterator
  - Handle `num_chunks` of zero in `iter_subdivide`
 

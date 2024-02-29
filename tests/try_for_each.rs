@@ -15,22 +15,17 @@ fn iter_concurrent_limit_try_for_each(concurrent_limit: usize) {
     let threads_active_max = AtomicUsize::new(0);
     let threads_active_inner = AtomicUsize::new(0);
     let threads_active_inner_max = AtomicUsize::new(0);
-    iter_concurrent_limit!(
-        concurrent_limit,
-        (0..10).into_par_iter(),
-        try_for_each,
-        |_| {
-            incr_active_operations(&threads_active);
+    iter_concurrent_limit!(concurrent_limit, (0..10), try_for_each, |_| {
+        incr_active_operations(&threads_active);
+        std::thread::sleep(DUR);
+        (0..10).into_par_iter().for_each(|_| {
+            incr_active_operations(&threads_active_inner);
             std::thread::sleep(DUR);
-            (0..10).into_par_iter().for_each(|_| {
-                incr_active_operations(&threads_active_inner);
-                std::thread::sleep(DUR);
-                calc_active_operations(&threads_active_inner, &threads_active_inner_max);
-            });
-            calc_active_operations(&threads_active, &threads_active_max);
-            Ok::<(), std::io::Error>(())
-        }
-    )
+            calc_active_operations(&threads_active_inner, &threads_active_inner_max);
+        });
+        calc_active_operations(&threads_active, &threads_active_max);
+        Ok::<(), std::io::Error>(())
+    })
     .unwrap();
     assert_eq!(threads_active_max.into_inner(), concurrent_limit);
     if cfg!(not(feature = "ci")) {
