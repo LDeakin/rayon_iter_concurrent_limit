@@ -18,7 +18,7 @@ use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon_iter_concurrent_limit::iter_concurrent_limit;
 
 const N: usize = 1000;
-let output = iter_concurrent_limit!(2, (0..100).into_par_iter(), map, |i: usize| -> usize {
+let output = iter_concurrent_limit!(2, (0..100), map, |i: usize| -> usize {
     let alloc = vec![i; N];              // max of 2 concurrent allocations
     alloc.into_par_iter().sum::<usize>() // runs on all threads
 }).map(|alloc_sum| -> usize {

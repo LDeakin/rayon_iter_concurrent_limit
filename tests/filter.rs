@@ -15,22 +15,17 @@ fn iter_concurrent_limit_filter(concurrent_limit: usize) {
     let threads_active_max = AtomicUsize::new(0);
     let threads_active_inner = AtomicUsize::new(0);
     let threads_active_inner_max = AtomicUsize::new(0);
-    let output = iter_concurrent_limit!(
-        concurrent_limit,
-        (0..10).into_par_iter(),
-        filter,
-        |i| -> bool {
-            incr_active_operations(&threads_active);
+    let output = iter_concurrent_limit!(concurrent_limit, (0..10), filter, |i| -> bool {
+        incr_active_operations(&threads_active);
+        std::thread::sleep(DUR);
+        (0..10).into_par_iter().for_each(|_| {
+            incr_active_operations(&threads_active_inner);
             std::thread::sleep(DUR);
-            (0..10).into_par_iter().for_each(|_| {
-                incr_active_operations(&threads_active_inner);
-                std::thread::sleep(DUR);
-                calc_active_operations(&threads_active_inner, &threads_active_inner_max);
-            });
-            calc_active_operations(&threads_active, &threads_active_max);
-            i % 2 == 0
-        }
-    )
+            calc_active_operations(&threads_active_inner, &threads_active_inner_max);
+        });
+        calc_active_operations(&threads_active, &threads_active_max);
+        i % 2 == 0
+    })
     .collect::<Vec<_>>();
     assert_eq!(
         output,
