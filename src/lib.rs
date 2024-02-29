@@ -11,7 +11,7 @@
 //!     let alloc = vec![i; N]; // max 2 concurrent allocations in this example
 //!     alloc.into_par_iter().sum::<usize>() // runs on all threads
 //! };
-//! let sum_iter = iter_concurrent_limit!(2, (0..100), map, op);
+//! let sum_iter = iter_concurrent_limit!(2, 0..100, map, op);
 //! let output = sum_iter
 //!     .map(|alloc_sum| -> usize {
 //!         alloc_sum / N // runs on all threads
@@ -162,7 +162,7 @@ pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I
 ///     let alloc = vec![i; 1000]; // limited concurrency
 ///     alloc.into_par_iter().for_each(|_j| {}); // runs on all threads
 /// };
-/// iter_concurrent_limit!(2, (0..10), for_each, op);
+/// iter_concurrent_limit!(2, 0..10, for_each, op);
 /// ```
 ///
 /// ### try_for_each
@@ -175,7 +175,7 @@ pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I
 ///     alloc.into_par_iter().for_each(|_j| {}); // runs on all threads
 ///     Ok::<(), std::io::Error>(())
 /// };
-/// iter_concurrent_limit!(2, (0..10), try_for_each, op)?;
+/// iter_concurrent_limit!(2, 0..10, try_for_each, op)?;
 /// # Ok(())
 /// # }
 /// ```
@@ -189,7 +189,7 @@ pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I
 ///     alloc.into_par_iter().sum::<usize>() // runs on all threads
 /// };
 /// let sum =
-///     iter_concurrent_limit!(2, (0..100), map, op)
+///     iter_concurrent_limit!(2, 0..100, map, op)
 ///     .sum::<usize>();
 /// assert_eq!(sum, (0..100).into_iter().map(op).sum::<usize>());
 /// ```
@@ -203,7 +203,7 @@ pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I
 ///     i % 2 == 0
 /// };
 /// let even =
-///     iter_concurrent_limit!(2, (0..100), filter, op)
+///     iter_concurrent_limit!(2, 0..100, filter, op)
 ///     .collect::<Vec<usize>>();
 /// assert_eq!(even, (0..100).into_iter().filter(op).collect::<Vec<usize>>());
 /// ```
@@ -217,7 +217,7 @@ pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I
 ///     if i % 2 == 0 { Some(i * 2) } else { None }
 /// };
 /// let even_doubled =
-///     iter_concurrent_limit!(2, (0..100), filter_map, op)
+///     iter_concurrent_limit!(2, 0..100, filter_map, op)
 ///     .collect::<Vec<usize>>();
 /// assert_eq!(even_doubled, (0..100).into_iter().filter_map(op).collect::<Vec<usize>>());
 /// ```
@@ -230,7 +230,7 @@ pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I
 ///     // ... do work with limited concurrency
 ///     i == 50
 /// };
-/// let any_eq_50 = iter_concurrent_limit!(2, (0..100), any, op);
+/// let any_eq_50 = iter_concurrent_limit!(2, 0..100, any, op);
 /// assert_eq!(any_eq_50, (0..100).into_iter().any(op));
 /// ```
 ///
@@ -242,7 +242,7 @@ pub fn iter_subdivide<I: IndexedParallelIterator>(num_chunks: usize, iterator: I
 ///     // ... do work with limited concurrency
 ///     i == 50
 /// };
-/// let all_eq_50 = iter_concurrent_limit!(2, (0..100), all, op);
+/// let all_eq_50 = iter_concurrent_limit!(2, 0..100, all, op);
 /// assert_eq!(all_eq_50, (0..100).into_iter().all(op));
 /// ```
 ///

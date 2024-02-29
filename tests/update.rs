@@ -15,7 +15,7 @@ fn iter_concurrent_limit_update(concurrent_limit: usize) {
     let threads_active_max = AtomicUsize::new(0);
     let threads_active_inner = AtomicUsize::new(0);
     let threads_active_inner_max = AtomicUsize::new(0);
-    let output = iter_concurrent_limit!(concurrent_limit, (0..10), update, |i: &mut usize| {
+    let output = iter_concurrent_limit!(concurrent_limit, 0..10, update, |i: &mut usize| {
         incr_active_operations(&threads_active);
         std::thread::sleep(DUR);
         (0..10).into_par_iter().for_each(|_| {

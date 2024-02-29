@@ -17,7 +17,7 @@ fn readme() {
 
     let concurrent_limit = 2;
     const N: usize = 1000;
-    let output = iter_concurrent_limit!(concurrent_limit, (0..100), map, |i: usize| -> usize {
+    let output = iter_concurrent_limit!(concurrent_limit, 0..100, map, |i: usize| -> usize {
         let alloc = vec![i; N]; // max of 2 concurrent allocations
         incr_active_operations(&threads_active);
         std::thread::sleep(DUR);
