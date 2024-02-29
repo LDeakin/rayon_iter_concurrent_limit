@@ -6,7 +6,7 @@ use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterato
 
 use rayon_iter_concurrent_limit::iter_concurrent_limit;
 
-use crate::common::{calc_active_operations, incr_active_operations};
+use common::{calc_active_operations, incr_active_operations};
 
 const DUR: time::Duration = core::time::Duration::from_millis(10);
 
