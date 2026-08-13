@@ -1,3 +1,5 @@
+#![allow(deprecated)] // the deprecated iter_concurrent_limit! macro is still tested
+
 mod common;
 use core::time;
 use std::sync::atomic::AtomicUsize;
@@ -47,4 +49,11 @@ fn iter_concurrent_limit_try_for_each_2() {
 #[test]
 fn iter_concurrent_limit_try_for_each_4() {
     iter_concurrent_limit_try_for_each(4);
+}
+
+// The macro supports any rayon `Try` output (e.g. Option), unlike try_for_each_concurrent_limit.
+#[test]
+fn iter_concurrent_limit_try_for_each_option() {
+    let result = iter_concurrent_limit!(2, 0..10, try_for_each, |_i| Some(()));
+    assert_eq!(result, Some(()));
 }

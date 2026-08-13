@@ -5,7 +5,7 @@
 ![msrv](https://img.shields.io/crates/msrv/rayon_iter_concurrent_limit)
 [![build](https://github.com/LDeakin/rayon_iter_concurrent_limit/actions/workflows/ci.yml/badge.svg)](https://github.com/LDeakin/rayon_iter_concurrent_limit/actions/workflows/ci.yml)
 
-Limit the concurrency of an individual rayon parallel iterator method with a convenient macro.
+Limit the concurrency of an individual rayon parallel iterator method with a convenient extension trait.
 
 - [API documentation (`docs.rs`)](https://docs.rs/rayon_iter_concurrent_limit/latest/rayon_iter_concurrent_limit/)
 - [Changelog (`CHANGELOG.md`)](./CHANGELOG.md)
@@ -15,17 +15,19 @@ The documentation outlines the motivation, implementation, and limitations of th
 ## Example
 ```rust
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon_iter_concurrent_limit::iter_concurrent_limit;
+use rayon_iter_concurrent_limit::ParallelIteratorConcurrentLimit;
 
 const N: usize = 1000;
-let output = iter_concurrent_limit!(2, 0..100, map, |i: usize| -> usize {
-    let alloc = vec![i; N];              // max of 2 concurrent allocations
-    alloc.into_par_iter().sum::<usize>() // runs on all threads
-})
-.map(|alloc_sum| -> usize {
-    alloc_sum / N                        // max of 2 concurrent executions
-})
-.collect::<Vec<usize>>();
+let output = (0..100)
+    .into_par_iter()
+    .map_concurrent_limit(2, |i| {
+        let alloc = vec![i; N];              // max of 2 concurrent allocations
+        alloc.into_par_iter().sum::<usize>() // runs on all threads
+    })
+    .map(|alloc_sum| {
+        alloc_sum / N                        // max of 2 concurrent executions
+    })
+    .collect::<Vec<usize>>();
 assert_eq!(output, (0..100).into_iter().collect::<Vec<usize>>());
 ```
 

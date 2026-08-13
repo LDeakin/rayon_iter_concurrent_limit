@@ -1,10 +1,10 @@
 [package]
 name = "rayon_iter_concurrent_limit"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Lachlan Deakin <ljdgit@gmail.com>"]
 edition = "2021"
-rust-version = "1.63"
-description = "Limit the concurrency of an individual rayon parallel iterator method with a convenient macro"
+rust-version = "1.75"
+description = "Limit the concurrency of an individual rayon parallel iterator method with a convenient extension trait"
 documentation = "https://docs.rs/rayon_iter_concurrent_limit"
 repository = "https://github.com/LDeakin/rayon_iter_concurrent_limit"
 license = "MIT OR Apache-2.0"

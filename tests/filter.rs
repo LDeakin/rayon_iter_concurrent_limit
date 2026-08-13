@@ -1,3 +1,5 @@
+#![allow(deprecated)] // the deprecated iter_concurrent_limit! macro is still tested
+
 mod common;
 use core::time;
 use std::sync::atomic::AtomicUsize;

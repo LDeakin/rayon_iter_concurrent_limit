@@ -7,8 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+ - Add the `ParallelIteratorConcurrentLimit` extension trait for `rayon::iter::IndexedParallelIterator`
+   - Adds `_concurrent_limit` suffixed variants of `ParallelIterator` methods: `for_each`, `try_for_each`, `map`, `update`, `filter`, `filter_map`, `any`, and `all`
+   - Example: `iter_concurrent_limit!(2, 0..100, map, op)` becomes `(0..100).into_par_iter().map_concurrent_limit(2, op)`
+   - Unlike the macro, closure signatures do not have to be made explicit
+   - `try_for_each_concurrent_limit` only supports `Result` operation outputs (the macro also supports `Option`), because the `Try` trait of `rayon` is private
+   - Unlike the macro, the trait methods have no sequential fast path for a `concurrent_limit` of one; the entire iterator is collected into a single chunk
+
 ### Changed
+ - **Breaking**: Bump the MSRV to 1.75 (from 1.63) for `impl Trait` in trait method return positions
+ - The `for_each`, `try_for_each`, `any`, and `all` operations no longer require `Copy` operations/predicates when `concurrent_limit > 1`
  - Remove some needless parentheses around ranges in docs and tests
+
+### Deprecated
+ - Deprecate the `iter_concurrent_limit!` macro in favour of the `ParallelIteratorConcurrentLimit` trait methods
+   - Most macro arms now delegate to the trait methods
 
 ## [0.2.0] - 2024-02-29
 
