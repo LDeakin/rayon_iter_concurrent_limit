@@ -1,9 +1,8 @@
 //! Compare concurrency limiting by chunking against the exact-split driver used by this crate.
 //!
 //! Chunking materialises each chunk into a `Vec` and rounds the chunk *size* up, so the number of
-//! chunks — and therefore the achieved concurrency — can fall short of the requested limit. This
-//! is how earlier versions of this crate limited concurrency. The exact split allocates nothing
-//! and reaches the limit exactly.
+//! chunks — and therefore the achieved concurrency — can fall short of the requested limit. The
+//! exact split allocates nothing and reaches the limit exactly.
 //!
 //! Run with `cargo run --release --example concurrency_comparison`.
 
