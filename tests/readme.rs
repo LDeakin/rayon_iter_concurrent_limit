@@ -2,7 +2,7 @@ mod common;
 
 use common::{pool, Concurrency};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon_iter_concurrent_limit::ParallelIteratorConcurrentLimit;
+use rayon_iter_concurrent_limit::ConcurrentLimit;
 
 const DUR: core::time::Duration = core::time::Duration::from_millis(10);
 

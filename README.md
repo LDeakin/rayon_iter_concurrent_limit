@@ -15,7 +15,7 @@ The documentation outlines the motivation, implementation, and limitations of th
 ## Example
 ```rust
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon_iter_concurrent_limit::ParallelIteratorConcurrentLimit;
+use rayon_iter_concurrent_limit::ConcurrentLimit;
 
 const N: usize = 1000;
 let output = (0..100)

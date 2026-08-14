@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Instant;
 
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use rayon_iter_concurrent_limit::ParallelIteratorConcurrentLimit;
+use rayon_iter_concurrent_limit::ConcurrentLimit;
 
 static ALLOCS: AtomicUsize = AtomicUsize::new(0);
 static LIVE: AtomicUsize = AtomicUsize::new(0);

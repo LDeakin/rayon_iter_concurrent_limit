@@ -1,4 +1,4 @@
-//! The [`ConcurrentLimit`] adaptor and its exact-split driver.
+//! The [`ConcurrencyLimited`] adaptor and its exact-split driver.
 //!
 //! See the [Implementation](crate#implementation) section of the crate documentation for why an
 //! exact split is needed and what it buys over chunking. In short: [`Producer::split_at`] accepts
@@ -14,18 +14,18 @@ use rayon::iter::{IndexedParallelIterator, ParallelIterator};
 /// `concurrent_limit` work items.
 ///
 /// This struct is created by the [`concurrent_limit`] method on
-/// [`ParallelIteratorConcurrentLimit`]. See its documentation for more.
+/// [`ConcurrentLimit`]. See its documentation for more.
 ///
-/// [`concurrent_limit`]: crate::ParallelIteratorConcurrentLimit::concurrent_limit
-/// [`ParallelIteratorConcurrentLimit`]: crate::ParallelIteratorConcurrentLimit
+/// [`concurrent_limit`]: crate::ConcurrentLimit::concurrent_limit
+/// [`ConcurrentLimit`]: crate::ConcurrentLimit
 #[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
 #[derive(Debug, Clone)]
-pub struct ConcurrentLimit<I> {
+pub struct ConcurrencyLimited<I> {
     base: I,
     concurrent_limit: usize,
 }
 
-impl<I> ConcurrentLimit<I> {
+impl<I> ConcurrencyLimited<I> {
     pub(crate) fn new(concurrent_limit: usize, base: I) -> Self {
         Self {
             base,
@@ -34,7 +34,7 @@ impl<I> ConcurrentLimit<I> {
     }
 }
 
-impl<I: IndexedParallelIterator> ParallelIterator for ConcurrentLimit<I> {
+impl<I: IndexedParallelIterator> ParallelIterator for ConcurrencyLimited<I> {
     type Item = I::Item;
 
     fn drive_unindexed<C>(self, consumer: C) -> C::Result
@@ -49,7 +49,7 @@ impl<I: IndexedParallelIterator> ParallelIterator for ConcurrentLimit<I> {
     }
 }
 
-impl<I: IndexedParallelIterator> IndexedParallelIterator for ConcurrentLimit<I> {
+impl<I: IndexedParallelIterator> IndexedParallelIterator for ConcurrencyLimited<I> {
     fn len(&self) -> usize {
         self.base.len()
     }

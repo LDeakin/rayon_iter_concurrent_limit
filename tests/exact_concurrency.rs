@@ -12,7 +12,7 @@ mod common;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-use rayon_iter_concurrent_limit::ParallelIteratorConcurrentLimit;
+use rayon_iter_concurrent_limit::ConcurrentLimit;
 
 use common::{pool, Concurrency};
 

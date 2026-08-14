@@ -9,7 +9,7 @@ mod common;
 use core::time;
 
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
-use rayon_iter_concurrent_limit::ParallelIteratorConcurrentLimit;
+use rayon_iter_concurrent_limit::ConcurrentLimit;
 
 use common::{pool, Concurrency as Gauge};
 
