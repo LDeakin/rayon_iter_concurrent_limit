@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
    - It splits the iterator into exactly `concurrent_limit` work items without allocating, and is itself an `IndexedParallelIterator`
    - The limit degrades from exact to an upper bound if an adaptor needing a producer of its own (`zip`, `enumerate`, `rev`, ...) is chained after it
  - Add the `concurrency_comparison` example, which measures allocation and achieved concurrency for chunking versus the exact split
+ - Add the `concurrent_limit` benchmark, which times `for_each`, `map`/`collect`, `any`, and nested parallelism for chunking versus the exact split
 
 ### Removed
  - **Breaking**: Remove the `iter_concurrent_limit!` macro, superseded by `ConcurrentLimit::concurrent_limit`
