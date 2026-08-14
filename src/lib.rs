@@ -107,11 +107,11 @@
 #![warn(dead_code)]
 #![deny(missing_docs)]
 
-mod split;
+mod concurrency_limited;
 
 use rayon::iter::{IndexedParallelIterator, ParallelIterator};
 
-pub use split::ConcurrencyLimited;
+pub use concurrency_limited::ConcurrencyLimited;
 
 /// An extension trait which limits the concurrency of an iterator chain.
 ///
