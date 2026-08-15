@@ -55,6 +55,8 @@ impl<I: IndexedParallelIterator> IndexedParallelIterator for ConcurrencyLimited<
     }
 
     /// Drive the iterator ourselves, splitting into exactly `concurrent_limit` pieces.
+    ///
+    /// A tighter minimum length imposed further up the chain wins; see `Callback::callback`.
     fn drive<C: Consumer<Self::Item>>(self, consumer: C) -> C::Result {
         if self.concurrent_limit == 0 {
             return self.base.drive(consumer);
@@ -98,7 +100,13 @@ impl<T, C: Consumer<T>> ProducerCallback<T> for Callback<C> {
     where
         P: Producer<Item = T>,
     {
-        exact_split(producer, self.len, self.num_pieces, self.consumer)
+        // A producer may forbid splitting below a minimum length, and that minimum wins: it comes
+        // either from an upstream [`IndexedParallelIterator::with_min_len`] or from an upstream
+        // `concurrent_limit` which has already degraded to its `with_min_len` fallback. Honouring
+        // it caps the piece count at `len / min_len`; the split below stays exact for that count.
+        let min_len = producer.min_len().max(1);
+        let num_pieces = self.num_pieces.min(self.len / min_len).max(1);
+        exact_split(producer, self.len, num_pieces, self.consumer)
     }
 }
 

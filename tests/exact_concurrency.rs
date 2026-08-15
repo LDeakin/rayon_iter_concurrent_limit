@@ -189,6 +189,71 @@ fn limit_is_upper_bound_through_indexed_chaining() {
     });
 }
 
+/// An upstream `with_min_len` forbids work items smaller than the minimum, so it caps the number
+/// of work items at `len / min_len`. The limit must not split through it.
+#[test]
+fn upstream_with_min_len_caps_the_limit() {
+    const N: usize = 32;
+    pool().install(|| {
+        for (min_len, expected) in [(16usize, 2usize), (8, 4), (4, 8), (1, 12)] {
+            let concurrency = Concurrency::default();
+            (0..N)
+                .into_par_iter()
+                .with_min_len(min_len)
+                .concurrent_limit(12)
+                .for_each(|_| record(&concurrency));
+            assert_eq!(
+                concurrency.max(),
+                expected,
+                "with_min_len({min_len}) then a limit of 12 over {N} items"
+            );
+        }
+    });
+}
+
+/// A second `concurrent_limit` cannot *raise* a tighter limit applied earlier in the chain: the
+/// operations between the two calls must keep the tighter one.
+#[test]
+fn a_later_limit_cannot_relax_an_earlier_one() {
+    const N: usize = 16;
+    pool().install(|| {
+        // Tighter first: both operations must stay at the tighter limit of 2.
+        let first = Concurrency::default();
+        let second = Concurrency::default();
+        let output = (0..N)
+            .into_par_iter()
+            .concurrent_limit(2)
+            .map(|i| {
+                record(&first);
+                i
+            })
+            .concurrent_limit(8)
+            .map(|i| {
+                record(&second);
+                i
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(output, (0..N).collect::<Vec<_>>());
+        assert_eq!(first.max(), 2, "operation before the relaxed limit");
+        assert_eq!(second.max(), 2, "operation after the relaxed limit");
+
+        // Tighter last: the tighter limit applies to both, as it always has.
+        let first = Concurrency::default();
+        let second = Concurrency::default();
+        (0..N)
+            .into_par_iter()
+            .concurrent_limit(8)
+            .map(|i| {
+                record(&first);
+                i
+            })
+            .concurrent_limit(2)
+            .for_each(|_| record(&second));
+        assert_eq!(first.max(), 2, "operation before the tightened limit");
+        assert_eq!(second.max(), 2, "operation after the tightened limit");
+    });
+}
+
 /// Every item must be visited exactly once, for every limit.
 #[test]
 fn every_item_visited_once() {
