@@ -33,7 +33,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@nextest
       - run: cargo nextest run --all-targets
-      # `cargo nextest` does not run doctests
       - run: cargo test --doc
   fmt:
     runs-on: ubuntu-latest

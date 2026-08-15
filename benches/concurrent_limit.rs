@@ -1,12 +1,11 @@
-//! Benchmark [`ConcurrentLimit::concurrent_limit`] against the chunking approach it replaced.
+//! Benchmark [`ConcurrentLimit::concurrent_limit`].
 //!
-//! Every group runs the same workload three ways where a baseline makes sense:
-//! - `chunked`: the approach used by version 0.2.0 of this crate, reproduced in the [`chunked`]
-//!   module below. It splits the iterator with [`IndexedParallelIterator::chunks`] and applies the
-//!   operation sequentially within each chunk.
-//! - `concurrent_limit`: the exact-split driver of version 0.3.0.
-//! - `unlimited`: plain [`rayon`], with no concurrency limit at all. This is the floor that a
-//!   limiting strategy pays overhead against — it does not bound concurrency.
+//! Every group runs the same workload three ways:
+//! - `concurrent_limit`: the approach introduced in 0.3.0.
+//! - `chunked`: the approach used by version 0.2.0 of this crate.
+//!   It splits the iterator with [`IndexedParallelIterator::chunks`] and applies the operation
+//!   sequentially within each chunk.
+//! - `unlimited`: plain [`rayon`], with no concurrency limit at all.
 #![allow(missing_docs)]
 
 use criterion::{
@@ -20,7 +19,6 @@ use rayon_iter_concurrent_limit::ConcurrentLimit;
 mod chunked {
     use rayon::iter::{Chunks, IndexedParallelIterator};
 
-    /// Version 0.2.0's `iter_subdivide`, which every `iter_concurrent_limit!` arm called.
     pub fn subdivide<I: IndexedParallelIterator>(
         concurrent_limit: usize,
         iterator: I,
