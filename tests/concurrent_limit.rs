@@ -11,7 +11,7 @@ use core::time;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use rayon_iter_concurrent_limit::ConcurrentLimit;
 
-use common::{pool, Concurrency as Gauge};
+use common::{pool, Concurrency};
 
 const LEN: usize = 10;
 const DUR: time::Duration = time::Duration::from_millis(10);
@@ -21,12 +21,12 @@ const LIMITS: &[usize] = &[1, 2, 4];
 
 /// Tracks the concurrency of an operation and of parallel work nested inside it.
 #[derive(Default)]
-struct Concurrency {
-    outer: Gauge,
-    inner: Gauge,
+struct NestedConcurrency {
+    outer: Concurrency,
+    inner: Concurrency,
 }
 
-impl Concurrency {
+impl NestedConcurrency {
     /// Simulate an expensive operation which itself uses rayon.
     fn record(&self) {
         self.outer.record(|| {
@@ -54,10 +54,10 @@ impl Concurrency {
 }
 
 /// Exercise `chain` at every limit, in a thread pool dedicated to this test.
-fn each_limit(chain: impl Fn(usize, &Concurrency) + Sync) {
+fn each_limit(chain: impl Fn(usize, &NestedConcurrency) + Sync) {
     pool().install(|| {
         for &limit in LIMITS {
-            let concurrency = Concurrency::default();
+            let concurrency = NestedConcurrency::default();
             chain(limit, &concurrency);
             concurrency.assert_limited_to(limit);
         }
