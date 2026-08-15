@@ -9,13 +9,13 @@
 //! const N: usize = 1000;
 //! let output = (0..100)
 //!     .into_par_iter()
-//!     .concurrent_limit(2)
+//!     .concurrent_limit(2) // limits everything chained after it
 //!     .map(|i| {
-//!         let alloc = vec![i; N]; // max 2 concurrent allocations in this example
+//!         let alloc = vec![i; N]; // max of 2 concurrent allocations
 //!         alloc.into_par_iter().sum::<usize>() // runs on all threads
 //!     })
 //!     .map(|alloc_sum| {
-//!         alloc_sum / N // also runs with a max of 2 concurrent executions
+//!         alloc_sum / N // max of 2 concurrent executions
 //!     })
 //!     .collect::<Vec<usize>>();
 //! assert_eq!(output, (0..100).collect::<Vec<usize>>());
@@ -130,7 +130,7 @@
 //! Note that [`with_max_len`](IndexedParallelIterator::with_max_len) is *not* honoured, since asking for smaller work items is the opposite of what [`concurrent_limit`](ConcurrentLimit::concurrent_limit) is for.
 //!
 //! ### Limitations
-//! - [`concurrent_limit`](ConcurrentLimit::concurrent_limit) is only available on iterators implementing [`rayon::iter::IndexedParallelIterator`].
+//! - [`ConcurrentLimit`] is only implemented for iterators implementing [`rayon::iter::IndexedParallelIterator`].
 //! - A [`concurrent_limit`](ConcurrentLimit::concurrent_limit) cannot *raise* a limit already imposed upstream, by an earlier [`concurrent_limit`](ConcurrentLimit::concurrent_limit) or by [`with_min_len`](IndexedParallelIterator::with_min_len).
 //!
 //! ### Alternatives
@@ -145,22 +145,23 @@
 
 mod concurrency_limited;
 
-use rayon::iter::{IndexedParallelIterator, ParallelIterator};
+use rayon::iter::IndexedParallelIterator;
 
 pub use concurrency_limited::ConcurrencyLimited;
 
 /// An extension trait which limits the concurrency of an iterator chain.
 ///
-/// [`concurrent_limit`](ConcurrentLimit::concurrent_limit) requires the iterator to implement [`rayon::iter::IndexedParallelIterator`].
+/// It is implemented for every [`rayon::iter::IndexedParallelIterator`].
 ///
 /// The [crate root documentation](crate) explains the motivation for this approach, provides further details on the underlying implementation, and details its limitations.
-pub trait ConcurrentLimit: ParallelIterator {
+pub trait ConcurrentLimit: IndexedParallelIterator {
     /// Limit the concurrency of every subsequent method in the iterator chain.
     ///
     /// This splits the iterator into exactly `concurrent_limit` work items, so at most
     /// `concurrent_limit` executions of any operation chained from it run concurrently.
     ///
-    /// - A `concurrent_limit` of zero applies no limit.
+    /// - A `concurrent_limit` of zero applies no limit, and neither does one exceeding the length of
+    ///   the iterator, since there are never more work items than items.
     /// - A `concurrent_limit` of one runs chained operations sequentially, in a single [`rayon`] work item.
     /// - Parallel rayon methods executed *within* a chained operation continue to use the whole
     ///   thread pool (the global one, unless another has been installed; see [`rayon::ThreadPool`]).
@@ -217,12 +218,9 @@ pub trait ConcurrentLimit: ParallelIterator {
     ///     .collect_into_vec(&mut output);
     /// assert_eq!(output, (0..100).map(|i| i * 2).collect::<Vec<usize>>());
     /// ```
-    fn concurrent_limit(self, concurrent_limit: usize) -> ConcurrencyLimited<Self>
-    where
-        Self: IndexedParallelIterator,
-    {
+    fn concurrent_limit(self, concurrent_limit: usize) -> ConcurrencyLimited<Self> {
         ConcurrencyLimited::new(concurrent_limit, self)
     }
 }
 
-impl<I: ParallelIterator> ConcurrentLimit for I {}
+impl<I: IndexedParallelIterator> ConcurrentLimit for I {}
