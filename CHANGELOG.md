@@ -8,17 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
- - Add the `ConcurrentLimit` extension trait for `rayon` parallel iterators with a single method: `concurrent_limit`
-   - `iterator.concurrent_limit(n)` limits the concurrency of *every* method chained after it, and composes with any `rayon` method
-   - `concurrent_limit` requires the iterator to implement `rayon::iter::IndexedParallelIterator`
-   - Example: `iter_concurrent_limit!(2, 0..100, map, op)` becomes `(0..100).into_par_iter().concurrent_limit(2).map(op)`
+ - Add the `ConcurrentLimit` extension trait and its `concurrent_limit` method, which limits the concurrency of every method chained after it
+   - Implemented for every `rayon::iter::IndexedParallelIterator`
  - Add the `ConcurrencyLimited` parallel iterator adaptor returned by `concurrent_limit`
-   - It splits the iterator into exactly `concurrent_limit` work items without allocating, and is itself an `IndexedParallelIterator`
- - Add the `concurrency_comparison` example, which measures allocation and achieved concurrency for chunking versus the exact split
- - Add the `concurrent_limit` benchmark, which times `for_each`, `map`/`collect`, `any`, and nested parallelism for chunking versus the exact split
 
 ### Removed
  - **Breaking**: Remove the `iter_concurrent_limit!` macro, superseded by `ConcurrentLimit::concurrent_limit`
+   - Example: `iter_concurrent_limit!(2, 0..100, map, op)` becomes `(0..100).into_par_iter().concurrent_limit(2).map(op)`
    - The macro limited concurrency by chunking, which allocated the entire iterator into `Vec`s, produced an unindexed iterator, and could fall short of the requested concurrency
  - **Breaking**: Remove `iter_subdivide`, which existed to implement the chunking of the macro
 
