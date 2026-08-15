@@ -58,15 +58,16 @@ impl<I: IndexedParallelIterator> IndexedParallelIterator for ConcurrencyLimited<
     ///
     /// A tighter minimum length imposed further up the chain wins; see `Callback::callback`.
     fn drive<C: Consumer<Self::Item>>(self, consumer: C) -> C::Result {
-        if self.concurrent_limit == 0 {
+        let len = self.base.len();
+        // A limit of zero applies no limit, and a limit above `len` cannot bind, since there are
+        // never more work items than items. Leaving both to rayon avoids recursing all the way
+        // down to one `join` per item for a limit that constrains nothing.
+        if self.concurrent_limit == 0 || self.concurrent_limit > len {
             return self.base.drive(consumer);
         }
-        let len = self.base.len();
-        // `len` may be zero, so this cannot be a `clamp(1, len)`: that would panic on `min > max`.
-        let num_pieces = self.concurrent_limit.min(len).max(1);
         self.base.with_producer(Callback {
             len,
-            num_pieces,
+            concurrent_limit: self.concurrent_limit,
             consumer,
         })
     }
@@ -79,17 +80,20 @@ impl<I: IndexedParallelIterator> IndexedParallelIterator for ConcurrencyLimited<
     /// work items (rayon never splits below the minimum length) but can undershoot it, since
     /// rayon halves rather than splitting proportionally.
     fn with_producer<CB: ProducerCallback<Self::Item>>(self, callback: CB) -> CB::Output {
-        if self.concurrent_limit == 0 {
+        let len = self.base.len();
+        // A limit of zero applies no limit, and a limit of `len` or above yields a minimum length
+        // of one, which is rayon's default: in both cases the wrapper would do nothing.
+        if self.concurrent_limit == 0 || self.concurrent_limit >= len {
             return self.base.with_producer(callback);
         }
-        let min_len = self.base.len().div_ceil(self.concurrent_limit).max(1);
+        let min_len = len.div_ceil(self.concurrent_limit);
         self.base.with_min_len(min_len).with_producer(callback)
     }
 }
 
 struct Callback<C> {
     len: usize,
-    num_pieces: usize,
+    concurrent_limit: usize,
     consumer: C,
 }
 
@@ -105,7 +109,7 @@ impl<T, C: Consumer<T>> ProducerCallback<T> for Callback<C> {
         // `concurrent_limit` which has already degraded to its `with_min_len` fallback. Honouring
         // it caps the piece count at `len / min_len`; the split below stays exact for that count.
         let min_len = producer.min_len().max(1);
-        let num_pieces = self.num_pieces.min(self.len / min_len).max(1);
+        let num_pieces = self.concurrent_limit.min(self.len / min_len).max(1);
         exact_split(producer, self.len, num_pieces, self.consumer)
     }
 }
@@ -127,8 +131,12 @@ where
         producer.fold_with(consumer.into_folder()).complete()
     } else {
         let left_pieces = num_pieces / 2;
-        // Widened to avoid overflowing the product for very long iterators.
-        let mid = ((len as u128 * left_pieces as u128) / num_pieces as u128) as usize;
+        let mid = match len.checked_mul(left_pieces) {
+            Some(product) => product / num_pieces,
+            // Only for iterators longer than `usize::MAX / left_pieces`. Widening keeps the split
+            // proportional there, at the cost of a 128-bit division (a libcall on most targets).
+            None => ((len as u128 * left_pieces as u128) / num_pieces as u128) as usize,
+        };
         let mid = mid.clamp(1, len - 1);
 
         let (left_producer, right_producer) = producer.split_at(mid);
