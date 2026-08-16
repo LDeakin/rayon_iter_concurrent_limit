@@ -1,8 +1,7 @@
 //! `concurrent_limit` must reach *exactly* the requested concurrency, including for limits that
 //! do not evenly divide the iterator length, and must otherwise behave like the unlimited chain.
 //!
-//! A dedicated thread pool makes these assertions independent of the host's core count. The
-//! operations sleep rather than spin, so the threads do not need dedicated cores.
+//! Each test runs in a dedicated [`common::pool`]; see its documentation for why.
 //!
 //! Per-method coverage, including that parallelism *within* a limited operation is unrestricted,
 //! lives in `concurrent_limit.rs`.

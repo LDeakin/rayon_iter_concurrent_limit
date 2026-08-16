@@ -20,31 +20,6 @@
 //!     .collect::<Vec<usize>>();
 //! assert_eq!(output, (0..100).collect::<Vec<usize>>());
 //! ```
-//! The closest equivalent without this crate is to chunk the iterator, which is what earlier
-//! versions of this crate did:
-//! ```rust
-//! # use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
-//! # const N: usize = 1000;
-//! # let op = |i: usize| -> usize {
-//! #     let alloc = vec![i; N];
-//! #     alloc.into_par_iter().sum::<usize>()
-//! # };
-//! let sum_iter = (0..100)
-//!     .into_par_iter()
-//!     .chunks(100_usize.div_ceil(2))
-//!     .flat_map_iter(|chunk| chunk)
-//!     .map(op);
-//! # let output = sum_iter
-//! #     .map(|alloc_sum| -> usize {
-//! #         alloc_sum / N
-//! #     })
-//! #     .collect::<Vec<usize>>();
-//! # assert_eq!(output, (0..100).collect::<Vec<usize>>());
-//! ```
-//! That form allocates a [`Vec`] per chunk, produces an unindexed iterator, and can fall short of
-//! the requested concurrency because the chunk *size* is rounded up.
-//! [`concurrent_limit`](ConcurrentLimit::concurrent_limit) has none of those
-//! drawbacks; see [Implementation](#implementation).
 //!
 //! # Motivation
 //! Consider this example:
@@ -69,17 +44,14 @@
 //! # }
 //! ```
 //!
-//! However, this has some limitations and footguns:
-//! - Any parallel operations within `op` will use the same thread-limited thread pool, unless [`install`](rayon::ThreadPool::install) is called internally with a different thread pool.
-//! - If [`install`](rayon::ThreadPool::install) is called internally, `op` can yield and multiple instances of `op` may run concurrently on a thread. This is detailed [here](https://docs.rs/rayon/1.8.1/rayon/struct.ThreadPool.html#warning-execution-order) in the [`install`](rayon::ThreadPool::install) documentation.
-//! - An iterator must be consumed in the [`install`](rayon::ThreadPool::install) scope of a [`ThreadPool`](rayon::ThreadPool), otherwise it will not use that thread pool.
+//! However, this constrains more than intended and has a footgun.
+//! Any parallel operations within `op` use the same thread-limited pool, and the iterator must be consumed inside the [`install`](rayon::ThreadPool::install) scope or it will not use that pool at all.
+//! Calling [`install`](rayon::ThreadPool::install) internally with a different pool avoids the first problem but introduces a worse one: `op` can then yield, so multiple instances of `op` may run concurrently on a single thread, as detailed [here](https://docs.rs/rayon/1.8.1/rayon/struct.ThreadPool.html#warning-execution-order) in the [`install`](rayon::ThreadPool::install) documentation.
 //!
-//! # Solution
-//! This crate provides [`ConcurrentLimit`], an extension trait for [`rayon`] parallel iterators.
+//! # How it works
+//! This crate provides [`ConcurrentLimit`], an extension trait implemented for every [`rayon::iter::IndexedParallelIterator`].
 //! Its single method, [`concurrent_limit`](ConcurrentLimit::concurrent_limit), limits the concurrency of every subsequent method in the chain, while parallel operations *within* the supplied function continue to use the whole thread pool.
-//! It requires the iterator to implement [`rayon::iter::IndexedParallelIterator`].
 //!
-//! ### Implementation
 //! Concurrency is limited by reducing the number of work items available to [`rayon`], so that a chained operation runs *sequentially* within a work item but in *parallel* across them.
 //! [`concurrent_limit`](ConcurrentLimit::concurrent_limit) splits the iterator into exactly `concurrent_limit` pieces of near-equal size.
 //! Nothing is allocated and items are consumed lazily.
@@ -94,7 +66,7 @@
 //! - Adaptors that need a [`Producer`](rayon::iter::plumbing::Producer) of their own — [`zip`](IndexedParallelIterator::zip), [`enumerate`](IndexedParallelIterator::enumerate), [`rev`](IndexedParallelIterator::rev), [`skip`](IndexedParallelIterator::skip), [`take`](IndexedParallelIterator::take), [`step_by`](IndexedParallelIterator::step_by), [`chunks`](IndexedParallelIterator::chunks) — take over the splitting.
 //!   The limit then degrades from exact to an upper bound, applied as an [`IndexedParallelIterator::with_min_len`] hint: [`rayon`] never splits below the minimum length, but because it splits by halving, the concurrency can undershoot the limit (as low as approximately half of it).
 //!
-//! ### Interaction with `with_min_len` and with a second `concurrent_limit`
+//! # Interaction with `with_min/max_len` or a second `concurrent_limit`
 //! A minimum length set further up the chain is a hard floor on the size of a work item, so it caps the number of work items at `len / min_len`.
 //! [`concurrent_limit`](ConcurrentLimit::concurrent_limit) honours that floor, which means **the tightest constraint in the chain wins** and the limit is always an upper bound, never an override:
 //! ```rust
@@ -129,11 +101,29 @@
 //! Relaxing a limit part-way through a chain is therefore not possible; split the chain into two separate iterators instead.
 //! Note that [`with_max_len`](IndexedParallelIterator::with_max_len) is *not* honoured, since asking for smaller work items is the opposite of what [`concurrent_limit`](ConcurrentLimit::concurrent_limit) is for.
 //!
-//! ### Limitations
-//! - [`ConcurrentLimit`] is only implemented for iterators implementing [`rayon::iter::IndexedParallelIterator`].
-//! - A [`concurrent_limit`](ConcurrentLimit::concurrent_limit) cannot *raise* a limit already imposed upstream, by an earlier [`concurrent_limit`](ConcurrentLimit::concurrent_limit) or by [`with_min_len`](IndexedParallelIterator::with_min_len).
+//! # Alternatives
+//! Chunking the iterator is the closest equivalent without this crate, and is what earlier versions of this crate did:
+//! ```rust
+//! # use rayon::iter::{IndexedParallelIterator, IntoParallelIterator, ParallelIterator};
+//! # const N: usize = 1000;
+//! # let op = |i: usize| -> usize {
+//! #     let alloc = vec![i; N];
+//! #     alloc.into_par_iter().sum::<usize>()
+//! # };
+//! let sum_iter = (0..100)
+//!     .into_par_iter()
+//!     .chunks(100_usize.div_ceil(2))
+//!     .flat_map_iter(|chunk| chunk)
+//!     .map(op);
+//! # let output = sum_iter
+//! #     .map(|alloc_sum| -> usize {
+//! #         alloc_sum / N
+//! #     })
+//! #     .collect::<Vec<usize>>();
+//! # assert_eq!(output, (0..100).collect::<Vec<usize>>());
+//! ```
+//! That form allocates a [`Vec`] per chunk, produces an unindexed iterator, and can fall short of the requested concurrency because the chunk *size* is rounded up.
 //!
-//! ### Alternatives
 //! [`IndexedParallelIterator::by_uniform_blocks`](https://docs.rs/rayon/latest/rayon/iter/trait.IndexedParallelIterator.html#method.by_uniform_blocks) (rayon 1.9.0) can also bound the number of concurrent executions of an operation.
 //! `iterator.by_uniform_blocks(limit)` processes blocks of `limit` items sequentially, with parallelism within each block.
 //! However, every block ends with a synchronisation point, so a single slow item stalls the entire pipeline at each block boundary.
@@ -166,34 +156,16 @@ pub trait ConcurrentLimit: IndexedParallelIterator {
     /// - Parallel rayon methods executed *within* a chained operation continue to use the whole
     ///   thread pool (the global one, unless another has been installed; see [`rayon::ThreadPool`]).
     /// - The limit is an upper bound, never an override: a tighter constraint already imposed
-    ///   upstream — an earlier `concurrent_limit`, or an
-    ///   [`with_min_len`](IndexedParallelIterator::with_min_len) that forbids work items this small —
-    ///   still applies. See [Interaction with `with_min_len` and with a second `concurrent_limit`](crate#interaction-with-with_min_len-and-with-a-second-concurrent_limit).
+    ///   upstream — an earlier `concurrent_limit`, or a
+    ///   [`with_min_len`](IndexedParallelIterator::with_min_len) — still applies. See
+    ///   [Interaction with `with_min_len` and with a second `concurrent_limit`](crate#interaction-with-with_min_len-and-with-a-second-concurrent_limit).
     ///
     /// The output is an [`IndexedParallelIterator`], so indexed methods such as [`zip`](IndexedParallelIterator::zip)
     /// and [`collect_into_vec`](IndexedParallelIterator::collect_into_vec) remain available.
-    /// The limit stays exact through consumer-wrapping adaptors such as [`map`](rayon::iter::ParallelIterator::map)
-    /// and [`filter`](rayon::iter::ParallelIterator::filter), but chaining an adaptor that needs a producer of
-    /// its own — [`zip`](IndexedParallelIterator::zip), [`enumerate`](IndexedParallelIterator::enumerate),
-    /// [`rev`](IndexedParallelIterator::rev), and similar — hands over the splitting, and the limit
-    /// degrades from exact to an upper bound.
-    /// See [Implementation](crate#implementation) for the full rule.
+    /// Whether the limit stays exact or degrades to an upper bound depends on what is chained after
+    /// it; see [How it works](crate#how-it-works).
     ///
     /// # Examples
-    /// ```rust
-    /// use rayon::iter::{IntoParallelIterator, ParallelIterator};
-    /// use rayon_iter_concurrent_limit::ConcurrentLimit;
-    /// let sum = (0..100)
-    ///     .into_par_iter()
-    ///     .concurrent_limit(2)
-    ///     .map(|i| {
-    ///         let alloc = vec![i; 1000]; // max 2 concurrent allocations
-    ///         alloc.into_par_iter().sum::<usize>() // runs on all threads
-    ///     })
-    ///     .sum::<usize>();
-    /// assert_eq!(sum, (0..100).map(|i| i * 1000).sum::<usize>());
-    /// ```
-    ///
     /// The limit applies to any [`rayon`] method, such as
     /// [`try_for_each`](rayon::iter::ParallelIterator::try_for_each):
     /// ```rust

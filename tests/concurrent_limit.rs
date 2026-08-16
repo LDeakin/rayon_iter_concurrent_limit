@@ -1,8 +1,7 @@
 //! The `concurrent_limit` adaptor must limit the concurrency of each chained rayon method, while
 //! leaving parallelism *within* the chained operation unrestricted.
 //!
-//! Each test runs in a dedicated thread pool, so the assertions hold regardless of the host's core
-//! count and of what else is running alongside them.
+//! Each test runs in a dedicated [`common::pool`]; see its documentation for why.
 
 mod common;
 

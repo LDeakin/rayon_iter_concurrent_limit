@@ -1,9 +1,7 @@
 //! The [`ConcurrencyLimited`] adaptor and its exact-split driver.
 //!
-//! See the [Implementation](crate#implementation) section of the crate documentation for why an
-//! exact split is needed and what it buys over chunking. In short: [`Producer::split_at`] accepts
-//! an arbitrary index, so splitting proportionally to a target piece count yields exactly `n`
-//! pieces for any `n`, where [`rayon`]'s own driver only ever halves.
+//! See the [How it works](crate#how-it-works) section of the crate documentation for why an exact
+//! split is needed.
 
 use rayon::iter::plumbing::{
     Consumer, Folder, Producer, ProducerCallback, Reducer, UnindexedConsumer,
@@ -76,9 +74,8 @@ impl<I: IndexedParallelIterator> IndexedParallelIterator for ConcurrencyLimited<
     /// `rev`, ...).
     ///
     /// That adaptor drives the split in this case, so the exact split above cannot be applied.
-    /// Fall back to [`IndexedParallelIterator::with_min_len`], which still bounds the number of
-    /// work items (rayon never splits below the minimum length) but can undershoot it, since
-    /// rayon halves rather than splitting proportionally.
+    /// Fall back to [`IndexedParallelIterator::with_min_len`], which bounds the number of work
+    /// items but can undershoot the limit.
     fn with_producer<CB: ProducerCallback<Self::Item>>(self, callback: CB) -> CB::Output {
         let len = self.base.len();
         // A limit of zero applies no limit, and a limit of `len` or above yields a minimum length
