@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Add the `ConcurrentLimit` extension trait and its `concurrent_limit` method, which limits the concurrency of every method chained after it
    - Implemented for every `rayon::iter::IndexedParallelIterator`
  - Add the `ConcurrencyLimited` parallel iterator adaptor returned by `concurrent_limit`
+ - Add trusted publishing
 
 ### Removed
  - **Breaking**: Remove the `iter_concurrent_limit!` macro, superseded by `ConcurrentLimit::concurrent_limit`
