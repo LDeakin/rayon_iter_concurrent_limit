@@ -17,6 +17,10 @@ lint:
 doc *ARGS:
     RUSTDOCFLAGS="-D warnings" cargo doc {{ ARGS }}
 
+# Run benchmarks. Pass `-- map_collect` to filter.
+bench *ARGS:
+    cargo bench --bench concurrent_limit {{ ARGS }}
+
 # Run the tests.
 test:
     cargo nextest run --all-targets

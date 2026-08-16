@@ -1,0 +1,154 @@
+//! The [`ConcurrencyLimited`] adaptor and its exact-split driver.
+//!
+//! See the [How it works](crate#how-it-works) section of the crate documentation for why an exact
+//! split is needed.
+
+use rayon::iter::plumbing::{
+    Consumer, Folder, Producer, ProducerCallback, Reducer, UnindexedConsumer,
+};
+use rayon::iter::{IndexedParallelIterator, ParallelIterator};
+
+/// A parallel iterator which yields the items of its base iterator, split into exactly
+/// `concurrent_limit` work items.
+///
+/// This struct is created by the [`concurrent_limit`] method on
+/// [`ConcurrentLimit`]. See its documentation for more.
+///
+/// [`concurrent_limit`]: crate::ConcurrentLimit::concurrent_limit
+/// [`ConcurrentLimit`]: crate::ConcurrentLimit
+#[must_use = "iterator adaptors are lazy and do nothing unless consumed"]
+#[derive(Debug, Clone)]
+pub struct ConcurrencyLimited<I> {
+    base: I,
+    concurrent_limit: usize,
+}
+
+impl<I> ConcurrencyLimited<I> {
+    pub(crate) fn new(concurrent_limit: usize, base: I) -> Self {
+        Self {
+            base,
+            concurrent_limit,
+        }
+    }
+}
+
+impl<I: IndexedParallelIterator> ParallelIterator for ConcurrencyLimited<I> {
+    type Item = I::Item;
+
+    fn drive_unindexed<C>(self, consumer: C) -> C::Result
+    where
+        C: UnindexedConsumer<Self::Item>,
+    {
+        self.drive(consumer)
+    }
+
+    fn opt_len(&self) -> Option<usize> {
+        self.base.opt_len()
+    }
+}
+
+impl<I: IndexedParallelIterator> IndexedParallelIterator for ConcurrencyLimited<I> {
+    fn len(&self) -> usize {
+        self.base.len()
+    }
+
+    /// Drive the iterator ourselves, splitting into exactly `concurrent_limit` pieces.
+    ///
+    /// A tighter minimum length imposed further up the chain wins; see `Callback::callback`.
+    fn drive<C: Consumer<Self::Item>>(self, consumer: C) -> C::Result {
+        let len = self.base.len();
+        // A limit of zero applies no limit, and a limit above `len` cannot bind, since there are
+        // never more work items than items. Leaving both to rayon avoids recursing all the way
+        // down to one `join` per item for a limit that constrains nothing.
+        if self.concurrent_limit == 0 || self.concurrent_limit > len {
+            return self.base.drive(consumer);
+        }
+        self.base.with_producer(Callback {
+            len,
+            concurrent_limit: self.concurrent_limit,
+            consumer,
+        })
+    }
+
+    /// Hand the producer to a downstream adaptor that needs one of its own (`zip`, `enumerate`,
+    /// `rev`, ...).
+    ///
+    /// That adaptor drives the split in this case, so the exact split above cannot be applied.
+    /// Fall back to [`IndexedParallelIterator::with_min_len`], which bounds the number of work
+    /// items but can undershoot the limit.
+    fn with_producer<CB: ProducerCallback<Self::Item>>(self, callback: CB) -> CB::Output {
+        let len = self.base.len();
+        // A limit of zero applies no limit, and a limit of `len` or above yields a minimum length
+        // of one, which is rayon's default: in both cases the wrapper would do nothing.
+        if self.concurrent_limit == 0 || self.concurrent_limit >= len {
+            return self.base.with_producer(callback);
+        }
+        let min_len = len.div_ceil(self.concurrent_limit);
+        self.base.with_min_len(min_len).with_producer(callback)
+    }
+}
+
+struct Callback<C> {
+    len: usize,
+    concurrent_limit: usize,
+    consumer: C,
+}
+
+impl<T, C: Consumer<T>> ProducerCallback<T> for Callback<C> {
+    type Output = C::Result;
+
+    fn callback<P>(self, producer: P) -> Self::Output
+    where
+        P: Producer<Item = T>,
+    {
+        // A producer may forbid splitting below a minimum length, and that minimum wins: it comes
+        // either from an upstream [`IndexedParallelIterator::with_min_len`] or from an upstream
+        // `concurrent_limit` which has already degraded to its `with_min_len` fallback. Honouring
+        // it caps the piece count at `len / min_len`; the split below stays exact for that count.
+        let min_len = producer.min_len().max(1);
+        let num_pieces = self.concurrent_limit.min(self.len / min_len).max(1);
+        exact_split(producer, self.len, num_pieces, self.consumer)
+    }
+}
+
+/// Recursively halve the *piece count*, splitting the producer proportionally.
+///
+/// This mirrors [`rayon::iter::plumbing::bridge_producer_consumer`], except that the split point
+/// follows the target piece count instead of always being the midpoint, and the recursion stops
+/// at a fixed depth instead of consulting an adaptive splitter.
+fn exact_split<P, C>(producer: P, len: usize, num_pieces: usize, consumer: C) -> C::Result
+where
+    P: Producer,
+    C: Consumer<P::Item>,
+{
+    if consumer.full() {
+        // A short-circuiting consumer (e.g. `any`) already has its answer.
+        consumer.into_folder().complete()
+    } else if num_pieces <= 1 || len <= 1 {
+        producer.fold_with(consumer.into_folder()).complete()
+    } else {
+        let left_pieces = num_pieces / 2;
+        let mid = match len.checked_mul(left_pieces) {
+            Some(product) => product / num_pieces,
+            // Only for iterators longer than `usize::MAX / left_pieces`. Widening keeps the split
+            // proportional there, at the cost of a 128-bit division (a libcall on most targets).
+            None => ((len as u128 * left_pieces as u128) / num_pieces as u128) as usize,
+        };
+        let mid = mid.clamp(1, len - 1);
+
+        let (left_producer, right_producer) = producer.split_at(mid);
+        let (left_consumer, right_consumer, reducer) = consumer.split_at(mid);
+        let (left, right) = rayon::join(
+            || exact_split(left_producer, mid, left_pieces, left_consumer),
+            || {
+                exact_split(
+                    right_producer,
+                    len - mid,
+                    num_pieces - left_pieces,
+                    right_consumer,
+                )
+            },
+        );
+        reducer.reduce(left, right)
+    }
+}

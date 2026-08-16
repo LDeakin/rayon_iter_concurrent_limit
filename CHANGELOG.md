@@ -7,8 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+ - Add the `ConcurrentLimit` extension trait and its `concurrent_limit` method, which limits the concurrency of every method chained after it
+   - Implemented for every `rayon::iter::IndexedParallelIterator`
+ - Add the `ConcurrencyLimited` parallel iterator adaptor returned by `concurrent_limit`
+
+### Removed
+ - **Breaking**: Remove the `iter_concurrent_limit!` macro, superseded by `ConcurrentLimit::concurrent_limit`
+   - Example: `iter_concurrent_limit!(2, 0..100, map, op)` becomes `(0..100).into_par_iter().concurrent_limit(2).map(op)`
+   - The macro limited concurrency by chunking, which allocated the entire iterator into `Vec`s, produced an unindexed iterator, and could fall short of the requested concurrency
+ - **Breaking**: Remove `iter_subdivide`, which existed to implement the chunking of the macro
+
 ### Changed
- - Remove some needless parentheses around ranges in docs and tests
+ - **Breaking**: Bump the MSRV to 1.75 (from 1.63)
 
 ## [0.2.0] - 2024-02-29
 

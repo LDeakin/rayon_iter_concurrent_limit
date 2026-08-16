@@ -13,7 +13,7 @@ jobs:
   build:
     strategy:
       matrix:
-        toolchain: ["stable", "1.63", "beta", "nightly"]
+        toolchain: ["stable", "1.75", "beta", "nightly"]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,6 +21,9 @@ jobs:
         with:
           toolchain: ${{ matrix.toolchain }}
       - uses: Swatinem/rust-cache@v2
+      # Newer versions of rayon/rayon-core have a higher MSRV than this crate
+      - run: cargo update -p rayon --precise 1.10.0 && cargo update -p rayon-core --precise 1.12.1
+        if: ${{ matrix.toolchain == '1.75' }}
       - run: cargo build
   test:
     runs-on: ubuntu-latest
@@ -28,7 +31,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo test --features ci
+      - uses: taiki-e/install-action@nextest
+      - run: cargo nextest run --all-targets
+      - run: cargo test --doc
   fmt:
     runs-on: ubuntu-latest
     steps:

@@ -1,0 +1,6 @@
+[test-groups]
+concurrency = { max-threads = 1 }
+
+[[profile.default.overrides]]
+filter = 'binary(concurrent_limit) | binary(exact_concurrency) | binary(readme)'
+test-group = 'concurrency'
